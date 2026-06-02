@@ -1,0 +1,227 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  SUPER_ADMIN
+  SCHOOL_ADMIN
+  STAFF
+}
+
+enum SchoolStatus {
+  ACTIVE
+  SUSPENDED
+  PENDING
+}
+
+enum DeviceStatus {
+  ONLINE
+  OFFLINE
+}
+
+enum SubscriptionPlan {
+  STARTER
+  PROFESSIONAL
+  ENTERPRISE
+}
+
+enum SubscriptionStatus {
+  ACTIVE
+  EXPIRED
+  CANCELLED
+  TRIAL
+}
+
+enum AnnouncementType {
+  SCHEDULED
+  EMERGENCY
+  MANUAL
+}
+
+enum EmergencyType {
+  FIRE_ALERT
+  SECURITY_ALERT
+  MEDICAL_EMERGENCY
+  LOCKDOWN
+  CUSTOM
+}
+
+model School {
+  id               String           @id @default(uuid())
+  name             String
+  email            String           @unique
+  phone            String?
+  address          String?
+  logo             String?
+  logoPublicId     String?
+  timezone         String           @default("Africa/Accra")
+  status           SchoolStatus     @default(ACTIVE)
+  settings         Json             @default("{}")
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
+
+  users            User[]
+  devices          Device[]
+  schedules        Schedule[]
+  announcements    Announcement[]
+  subscription     Subscription?
+  activityLogs     ActivityLog[]
+  audioFiles       AudioFile[]
+
+  @@map("schools")
+}
+
+model User {
+  id           String   @id @default(uuid())
+  name         String
+  email        String   @unique
+  password     String
+  role         Role     @default(STAFF)
+  isActive     Boolean  @default(true)
+  lastLogin    DateTime?
+  refreshToken String?
+  avatarUrl    String?
+  schoolId     String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  school       School?  @relation(fields: [schoolId], references: [id], onDelete: SetNull)
+
+  @@index([email])
+  @@index([schoolId])
+  @@map("users")
+}
+
+model Device {
+  id           String       @id @default(uuid())
+  schoolId     String
+  name         String
+  location     String?
+  deviceType   String       @default("PC")
+  status       DeviceStatus @default(OFFLINE)
+  socketId     String?
+  lastSeen     DateTime?
+  ipAddress    String?
+  userAgent    String?
+  isActive     Boolean      @default(true)
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+
+  school       School       @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+
+  @@index([schoolId])
+  @@map("devices")
+}
+
+model Schedule {
+  id               String   @id @default(uuid())
+  schoolId         String
+  title            String
+  announcementText String
+  audioUrl         String?
+  audioPublicId    String?
+  audioFileId      String?
+  scheduledTime    String   // "HH:MM" format
+  days             String[] @default(["MON","TUE","WED","THU","FRI"])
+  repeatCount      Int      @default(2)
+  volume           Float    @default(1.0)
+  voiceId          String?
+  isActive         Boolean  @default(true)
+  isDefault        Boolean  @default(false)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  school           School         @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  audioFile        AudioFile?     @relation(fields: [audioFileId], references: [id], onDelete: SetNull)
+  announcements    Announcement[]
+
+  @@index([schoolId])
+  @@map("schedules")
+}
+
+model AudioFile {
+  id          String   @id @default(uuid())
+  schoolId    String
+  name        String
+  url         String
+  publicId    String
+  fileSize    Int?
+  mimeType    String?
+  duration    Float?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  school      School     @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  schedules   Schedule[]
+
+  @@index([schoolId])
+  @@map("audio_files")
+}
+
+model Announcement {
+  id               String           @id @default(uuid())
+  schoolId         String
+  scheduleId       String?
+  title            String
+  announcementText String
+  audioUrl         String?
+  type             AnnouncementType @default(SCHEDULED)
+  emergencyType    EmergencyType?
+  playedAt         DateTime         @default(now())
+  playedBy         String?
+  deviceCount      Int              @default(0)
+  duration         Float?
+  createdAt        DateTime         @default(now())
+
+  school           School           @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  schedule         Schedule?        @relation(fields: [scheduleId], references: [id], onDelete: SetNull)
+
+  @@index([schoolId])
+  @@index([playedAt])
+  @@map("announcements")
+}
+
+model Subscription {
+  id        String             @id @default(uuid())
+  schoolId  String             @unique
+  plan      SubscriptionPlan   @default(STARTER)
+  status    SubscriptionStatus @default(TRIAL)
+  startDate DateTime           @default(now())
+  endDate   DateTime?
+  maxDevices Int               @default(5)
+  features  String[]           @default([])
+  metadata  Json               @default("{}")
+  createdAt DateTime           @default(now())
+  updatedAt DateTime           @updatedAt
+
+  school    School             @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+
+  @@map("subscriptions")
+}
+
+model ActivityLog {
+  id        String   @id @default(uuid())
+  schoolId  String?
+  userId    String?
+  action    String
+  resource  String?
+  resourceId String?
+  details   Json?
+  ipAddress String?
+  userAgent String?
+  createdAt DateTime @default(now())
+
+  school    School?  @relation(fields: [schoolId], references: [id], onDelete: SetNull)
+
+  @@index([schoolId])
+  @@index([createdAt])
+  @@map("activity_logs")
+}
