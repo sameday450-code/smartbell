@@ -9,12 +9,10 @@ const PORT = process.env.PORT || 5000;
 
 const server = http.createServer(app);
 
-// Initialize Socket.IO — runs in both local and Vercel environments.
-// On Vercel, clients should use transports: ['polling'] as WebSocket
-// persistence across serverless invocations is not guaranteed.
-initSocket(server);
-
 if (!process.env.VERCEL) {
+  // Initialize Socket.IO only in traditional (non-serverless) environments.
+  // Vercel serverless functions are stateless and don't support persistent connections.
+  initSocket(server);
   // Traditional server: start node-cron and listen on PORT
   initCronJobs();
 
