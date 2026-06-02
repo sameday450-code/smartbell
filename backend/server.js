@@ -40,5 +40,7 @@ if (!process.env.VERCEL) {
   });
 }
 
-// Export the HTTP server (with Socket.IO attached) for Vercel's runtime
-module.exports = server;
+// Export the Express app for Vercel's serverless runtime.
+// Vercel requires a request handler function, not an http.Server instance.
+// Socket.IO polling will still work via the app's underlying routes.
+module.exports = app;
